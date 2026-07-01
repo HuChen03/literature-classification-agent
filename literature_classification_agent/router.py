@@ -11,7 +11,9 @@ _PATH_RE = re.compile(r"(?P<path>(?:\.{1,2}|/|~)[^\s，。；;]+|[A-Za-z0-9_.\-/
 
 
 class IntentRouter:
-    def route(self, payload: dict[str, Any]) -> ClassificationIntent:
+    def route(self, payload: str | dict[str, Any]) -> ClassificationIntent:
+        if isinstance(payload, str):
+            payload = {"request": payload}
         user_text = str(payload.get("request") or payload.get("user_request") or payload.get("userRequest") or "").strip()
         taxonomy = self._resolve_taxonomy(payload, user_text)
         mode = self._resolve_mode(payload, taxonomy, user_text)

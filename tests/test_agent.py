@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from literature_classification_agent import IntentRouter, LiteratureClassificationAgent, PaperLoader, PromptBuilder
+from literature_classification_agent.cli import _parse_input
 
 
 class LiteratureClassificationAgentTest(unittest.TestCase):
@@ -104,6 +105,14 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
         self.assertIsNotNone(intent.taxonomy)
         self.assertEqual([item.name for item in intent.taxonomy.categories], ["天文模拟", "自然语言处理"])
 
+    def test_router_accepts_natural_language_string(self):
+        intent = IntentRouter().route("请按给定关键词分类 ./papers.jsonl。关键词: 天文模拟, 自然语言处理")
+
+        self.assertEqual(intent.mode, "custom")
+        self.assertEqual(intent.source_type, "file")
+        self.assertEqual(intent.source_path, "./papers.jsonl")
+        self.assertIsNotNone(intent.taxonomy)
+
     def test_loader_and_batch_runner_classify_jsonl_with_threads(self):
         with TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "papers.jsonl"
@@ -128,6 +137,20 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
             self.assertEqual(batch["summary"]["success_count"], 2)
             self.assertEqual(batch["items"][0]["result"]["mode"], "custom")
             self.assertIn("prompt", batch["items"][0])
+            self.assertEqual(batch["items"][0]["result"]["primary_category"]["name"], "cosmological simulation")
+
+    def test_agent_run_accepts_natural_language_user_input(self):
+        with TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "papers.jsonl"
+            path.write_text(
+                '{"paper_id":"a1","title":"Cosmological Simulation of Dark Matter Halos","abstract":"This simulation studies halo formation in cosmology."}',
+                encoding="utf8",
+            )
+
+            batch = LiteratureClassificationAgent().run(f"请按给定关键词分类 {path}。关键词: cosmological simulation").to_dict()
+
+            self.assertEqual(batch["intent"]["mode"], "custom")
+            self.assertEqual(batch["summary"]["success_count"], 1)
             self.assertEqual(batch["items"][0]["result"]["primary_category"]["name"], "cosmological simulation")
 
     def test_prompt_builder_creates_different_prompts_by_mode(self):
@@ -155,6 +178,10 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
 
         self.assertIn("普通分类", general_prompt)
         self.assertIn("只能使用用户给定", custom_prompt)
+
+    def test_cli_input_parser_supports_json_and_natural_language(self):
+        self.assertIsInstance(_parse_input('{"paper":{"title":"A","abstract":"B"}}'), dict)
+        self.assertEqual(_parse_input("请分类 examples/papers.jsonl"), "请分类 examples/papers.jsonl")
 
 
 if __name__ == "__main__":

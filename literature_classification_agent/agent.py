@@ -55,8 +55,8 @@ class LiteratureClassificationAgent:
             return self._classify_custom(request.paper, request.taxonomy)
         return self._classify_general(request.paper)
 
-    def run(self, payload: ClassificationIntent | dict, include_prompts: bool = False) -> BatchClassificationResult:
-        intent = IntentRouter().route(payload) if isinstance(payload, dict) else payload
+    def run(self, payload: ClassificationIntent | dict | str, include_prompts: bool = False) -> BatchClassificationResult:
+        intent = payload if isinstance(payload, ClassificationIntent) else IntentRouter().route(payload)
         if intent.needs_clarification:
             return BatchClassificationResult(intent=intent, items=[], include_prompts=include_prompts)
         papers = PaperLoader().load(intent)

@@ -15,6 +15,19 @@
 
 ## 输入格式
 
+支持两种输入：
+
+1. 自然语言输入：面向用户直接输入，Agent 会从文本中识别分类模式、关键词和论文路径。
+2. JSON 输入：面向上游 Agent 或程序调用，字段稳定，适合自动化批处理。
+
+自然语言示例：
+
+```text
+请按给定关键词分类 examples/papers.jsonl。关键词: cosmological simulation, natural language processing
+```
+
+JSON 示例：
+
 ```json
 {
   "mode": "custom",
@@ -45,7 +58,7 @@
 
 不传 `taxonomy` 时自动进入 `general` 模式。
 
-也可以传一个任务式请求，让 Agent 自己识别路径和关键词：
+也可以传一个任务式 JSON 请求，让 Agent 自己识别路径和关键词：
 
 ```json
 {
@@ -63,6 +76,7 @@ cd literature_classification_agent
 python3 -m literature_classification_agent.cli examples/custom_input.json --pretty
 python3 -m literature_classification_agent.cli examples/general_input.json --pretty
 python3 -m literature_classification_agent.cli examples/batch_keyword_request.json --pretty
+python3 -m literature_classification_agent.cli examples/natural_language_request.txt --pretty
 ```
 
 也可以从 stdin 读取：

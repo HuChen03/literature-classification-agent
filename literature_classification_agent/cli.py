@@ -20,7 +20,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     raw = sys.stdin.read() if args.input == "-" else Path(args.input).read_text(encoding="utf8")
-    payload = json.loads(raw)
+    payload = _parse_input(raw)
     agent = LiteratureClassificationAgent()
     if args.single:
         output = agent.classify(payload).to_dict()
@@ -47,6 +47,19 @@ def _to_jsonl(output: dict[str, Any], include_prompts: bool) -> str:
     for item in output["items"]:
         rows.append(json.dumps(item if include_prompts else {key: value for key, value in item.items() if key != "prompt"}, ensure_ascii=False))
     return "\n".join(rows)
+
+
+def _parse_input(raw: str) -> dict[str, Any] | str:
+    text = raw.strip()
+    if not text:
+        raise ValueError("input is empty")
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        return text
+    if not isinstance(parsed, dict):
+        raise ValueError("JSON input must be an object")
+    return parsed
 
 
 def _to_csv(output: dict[str, Any]) -> str:
