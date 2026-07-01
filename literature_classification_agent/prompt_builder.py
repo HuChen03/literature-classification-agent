@@ -17,6 +17,7 @@ class PromptBuilder:
                 "你是文献分类 Agent。",
                 "请根据标题、摘要、关键词和正文片段，对文献进行普通分类。",
                 "输出严格 JSON，不要 Markdown。",
+                self._schema_block(),
                 "分类维度包括：paper_type, research_methods, domains, data_types, application_areas。",
                 "必须给出 confidence、evidence、needs_human_review。",
                 self._paper_block(paper),
@@ -33,6 +34,7 @@ class PromptBuilder:
                 "不得新增类别；如果没有类别匹配，primary_category=null，并设置 needs_human_review=true。",
                 "每个分类必须给出 evidence，包括命中关键词或语义依据。",
                 "输出严格 JSON，不要 Markdown。",
+                self._schema_block(),
                 f"taxonomy={json.dumps(taxonomy_payload, ensure_ascii=False)}",
                 self._paper_block(paper),
                 self._instruction_block(intent),
@@ -52,3 +54,13 @@ class PromptBuilder:
 
     def _instruction_block(self, intent: ClassificationIntent) -> str:
         return f"user_instruction={intent.user_instruction}" if intent.user_instruction else ""
+
+    def _schema_block(self) -> str:
+        return (
+            "输出 JSON schema："
+            '{"mode":"custom|general","paper_id":"...","primary_category":{"id":"...","name":"..."}或null,'
+            '"secondary_categories":[{"id":"...","name":"..."}],"paper_type":"...或null",'
+            '"research_methods":[],"domains":[],"application_areas":[],"data_types":[],'
+            '"generated_keywords":[],"confidence":0到1,"evidence":[{"text":"原文证据","reason":"分类理由"}],'
+            '"needs_human_review":true或false,"review_reasons":[]}'
+        )

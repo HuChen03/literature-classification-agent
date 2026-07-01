@@ -55,7 +55,8 @@ class BatchRunner:
                     mode=intent.mode,
                     taxonomy=intent.taxonomy,
                     user_instruction=intent.user_instruction,
-                )
+                ),
+                prompt=prompt,
             )
             return PaperClassificationJobResult(
                 paper_id=paper.paper_id,

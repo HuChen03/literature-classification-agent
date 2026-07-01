@@ -1,5 +1,6 @@
 from .agent import LiteratureClassificationAgent
 from .batch import BatchRunner
+from .llm import LlmClassifier, OpenAICompatibleClient
 from .loader import PaperLoader
 from .prompt_builder import PromptBuilder
 from .router import IntentRouter
@@ -22,7 +23,9 @@ __all__ = [
     "ClassificationIntent",
     "ClassificationResult",
     "IntentRouter",
+    "LlmClassifier",
     "LiteratureClassificationAgent",
+    "OpenAICompatibleClient",
     "LiteraturePaper",
     "PaperClassificationJobResult",
     "PaperLoader",

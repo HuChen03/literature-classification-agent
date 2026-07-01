@@ -10,8 +10,8 @@
 - `general` 模式：用户不提供 taxonomy 时，使用内置普通文献分类维度。
 - 批量分类：目录或多篇文件会走线程池并发执行。
 - 分模式构造 prompt：普通分类 prompt 与自定义严格分类 prompt 分开。
-- 输出结构化 JSON：分类结果、置信度、证据、人工审核标记。
-- 仅使用 Python 标准库，可离线运行。
+- 默认使用 LLM 分类，输出结构化 JSON：分类结果、置信度、证据、人工审核标记。
+- 保留 `CLASSIFIER_BACKEND=rules` 离线规则后端，便于测试和无 API key 场景。
 
 ## 输入格式
 
@@ -71,12 +71,36 @@ JSON 示例：
 
 ## 运行
 
+默认后端是 LLM。先复制环境变量模板：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env`：
+
+```bash
+CLASSIFIER_BACKEND=llm
+OPENAI_API_KEY=你的 API key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_TIMEOUT_S=60
+```
+
+然后运行：
+
 ```bash
 cd literature_classification_agent
 python3 -m literature_classification_agent.cli examples/custom_input.json --pretty
 python3 -m literature_classification_agent.cli examples/general_input.json --pretty
 python3 -m literature_classification_agent.cli examples/batch_keyword_request.json --pretty
 python3 -m literature_classification_agent.cli examples/natural_language_request.txt --pretty
+```
+
+没有 LLM API key 时，可以临时使用规则后端：
+
+```bash
+CLASSIFIER_BACKEND=rules python3 -m literature_classification_agent.cli examples/batch_keyword_request.json --pretty
 ```
 
 也可以从 stdin 读取：

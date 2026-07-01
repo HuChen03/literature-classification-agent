@@ -1,13 +1,18 @@
 import unittest
+import os
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from literature_classification_agent import IntentRouter, LiteratureClassificationAgent, PaperLoader, PromptBuilder
+from literature_classification_agent import IntentRouter, LiteratureClassificationAgent, LlmClassifier, PaperLoader, PromptBuilder
 from literature_classification_agent.cli import _parse_input
+from literature_classification_agent.schema import ClassificationInput, LiteraturePaper, Taxonomy, TaxonomyCategory
 
 
 class LiteratureClassificationAgentTest(unittest.TestCase):
+    def setUp(self):
+        os.environ["CLASSIFIER_BACKEND"] = "rules"
+
     def test_custom_mode_uses_only_user_taxonomy(self):
         payload = {
             "mode": "custom",
@@ -182,6 +187,34 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
     def test_cli_input_parser_supports_json_and_natural_language(self):
         self.assertIsInstance(_parse_input('{"paper":{"title":"A","abstract":"B"}}'), dict)
         self.assertEqual(_parse_input("请分类 examples/papers.jsonl"), "请分类 examples/papers.jsonl")
+
+    def test_llm_classifier_parses_and_validates_result(self):
+        class FakeClient:
+            def complete_json(self, prompt):
+                return {
+                    "mode": "custom",
+                    "paper_id": "p1",
+                    "primary_category": {"id": "allowed", "name": "Allowed"},
+                    "secondary_categories": [{"id": "outside", "name": "Outside"}],
+                    "confidence": 0.9,
+                    "evidence": [{"text": "evidence sentence", "reason": "semantic match"}],
+                    "needs_human_review": False,
+                    "review_reasons": [],
+                }
+
+        classifier = LlmClassifier(client=FakeClient())
+        result = classifier.classify(
+            ClassificationInput(
+                paper=LiteraturePaper(title="A", paper_id="p1", abstract="evidence sentence"),
+                mode="custom",
+                taxonomy=Taxonomy(categories=[TaxonomyCategory(id="allowed", name="Allowed", keywords=["evidence"])]),
+            ),
+            prompt="classify",
+        )
+
+        self.assertEqual(result.primary_category.id, "allowed")
+        self.assertEqual(result.secondary_categories, [])
+        self.assertIn("llm_secondary_category_outside_taxonomy", result.review_reasons)
 
 
 if __name__ == "__main__":

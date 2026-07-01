@@ -23,6 +23,8 @@ from .taxonomy import (
     DEFAULT_RESEARCH_METHODS,
 )
 from .batch import BatchRunner
+from .config import get_env
+from .llm import LlmClassifier
 from .loader import PaperLoader
 from .router import IntentRouter
 
@@ -47,7 +49,7 @@ class LiteratureClassificationAgent:
     - general: default open classification over built-in literature dimensions.
     """
 
-    def classify(self, payload: ClassificationInput | dict) -> ClassificationResult:
+    def classify(self, payload: ClassificationInput | dict, prompt: str | None = None) -> ClassificationResult:
         request = ClassificationInput.from_dict(payload) if isinstance(payload, dict) else payload
         if request.mode == "custom":
             if request.taxonomy is None:
@@ -60,7 +62,15 @@ class LiteratureClassificationAgent:
         if intent.needs_clarification:
             return BatchClassificationResult(intent=intent, items=[], include_prompts=include_prompts)
         papers = PaperLoader().load(intent)
-        return BatchRunner(self).run(intent, papers, include_prompts=include_prompts)
+        return BatchRunner(self._batch_classifier()).run(intent, papers, include_prompts=include_prompts)
+
+    def _batch_classifier(self):
+        backend = get_env("CLASSIFIER_BACKEND", "llm").lower()
+        if backend == "rules":
+            return self
+        if backend != "llm":
+            raise ValueError("CLASSIFIER_BACKEND must be 'llm' or 'rules'")
+        return LlmClassifier()
 
     def _classify_custom(self, paper: LiteraturePaper, taxonomy: Taxonomy) -> ClassificationResult:
         scores = [self._score_category(paper, category) for category in taxonomy.categories]

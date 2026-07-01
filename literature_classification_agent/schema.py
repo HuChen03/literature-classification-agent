@@ -195,6 +195,16 @@ class CategorySelection:
     def to_dict(self) -> dict[str, str]:
         return {"id": self.id, "name": self.name}
 
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any] | None) -> "CategorySelection | None":
+        if not isinstance(payload, dict):
+            return None
+        category_id = str(payload.get("id") or "").strip()
+        name = str(payload.get("name") or "").strip()
+        if not category_id and not name:
+            return None
+        return cls(id=category_id or name, name=name or category_id)
+
 
 @dataclass(frozen=True)
 class Evidence:
@@ -203,6 +213,14 @@ class Evidence:
 
     def to_dict(self) -> dict[str, str]:
         return {"text": self.text, "reason": self.reason}
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> "Evidence | None":
+        text = str(payload.get("text") or payload.get("quote") or "").strip()
+        reason = str(payload.get("reason") or "").strip()
+        if not text and not reason:
+            return None
+        return cls(text=text, reason=reason)
 
 
 @dataclass(frozen=True)
@@ -239,6 +257,33 @@ class ClassificationResult:
             "needs_human_review": self.needs_human_review,
             "review_reasons": self.review_reasons,
         }
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any], fallback_mode: ClassificationMode, fallback_paper_id: str | None = None) -> "ClassificationResult":
+        raw_mode = str(payload.get("mode") or fallback_mode).strip().lower()
+        mode: ClassificationMode = "custom" if raw_mode == "custom" else "general"
+        secondary_raw = payload.get("secondary_categories") or payload.get("secondaryCategories") or []
+        evidence_raw = payload.get("evidence") or []
+        return cls(
+            mode=mode,
+            paper_id=str(payload.get("paper_id") or payload.get("paperId") or fallback_paper_id or "").strip() or None,
+            primary_category=CategorySelection.from_dict(payload.get("primary_category") or payload.get("primaryCategory")),
+            secondary_categories=[
+                item
+                for item in (CategorySelection.from_dict(row) for row in secondary_raw if isinstance(row, dict))
+                if item is not None
+            ],
+            paper_type=str(payload.get("paper_type") or payload.get("paperType") or "").strip() or None,
+            research_methods=_string_list(payload.get("research_methods") or payload.get("researchMethods")),
+            domains=_string_list(payload.get("domains")),
+            application_areas=_string_list(payload.get("application_areas") or payload.get("applicationAreas")),
+            data_types=_string_list(payload.get("data_types") or payload.get("dataTypes")),
+            generated_keywords=_string_list(payload.get("generated_keywords") or payload.get("generatedKeywords")),
+            confidence=_bounded_float(payload.get("confidence"), 0.0, 1.0, 0.0),
+            evidence=[item for item in (Evidence.from_dict(row) for row in evidence_raw if isinstance(row, dict)) if item is not None],
+            needs_human_review=bool(payload.get("needs_human_review", payload.get("needsHumanReview", True))),
+            review_reasons=_string_list(payload.get("review_reasons") or payload.get("reviewReasons")),
+        )
 
 
 @dataclass(frozen=True)
