@@ -1,0 +1,8 @@
+{
+  "paper": {
+    "paper_id": "paper_general_001",
+    "title": "Transformer Models for Natural Language Processing: A Survey",
+    "abstract": "This survey reviews transformer architectures, language models, benchmark datasets, and applications in natural language processing.",
+    "keywords": ["transformer", "language model", "survey", "NLP"]
+  }
+}

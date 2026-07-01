@@ -1,0 +1,7 @@
+{
+  "request": "请按给定关键词分类 examples/papers.jsonl。关键词: cosmological simulation, natural language processing",
+  "source_path": "examples/papers.jsonl",
+  "keywords": ["cosmological simulation", "natural language processing"],
+  "output_format": "json",
+  "max_workers": 4
+}

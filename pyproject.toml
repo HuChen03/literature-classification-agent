@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "literature-classification-agent"
+version = "0.1.0"
+description = "Standalone single-agent literature classification pipeline with custom taxonomy and batch support."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "huchen" }]
+dependencies = []
+
+[project.scripts]
+literature-classifier = "literature_classification_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["literature_classification_agent*"]
