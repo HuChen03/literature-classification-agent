@@ -77,6 +77,8 @@ OPENAI_API_KEY=你的 API key
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4.1-mini
 OPENAI_TIMEOUT_S=60
+OPENAI_MAX_RETRIES=2
+OPENAI_RETRY_BACKOFF_S=2
 ```
 
 然后运行：
@@ -87,6 +89,15 @@ python3 -m literature_classification_agent.cli examples/custom_input.json --pret
 python3 -m literature_classification_agent.cli examples/general_input.json --pretty
 python3 -m literature_classification_agent.cli examples/batch_keyword_request.json --pretty
 python3 -m literature_classification_agent.cli examples/natural_language_request.txt --pretty
+```
+
+大批量任务建议开启 checkpoint，成功完成的论文会追加写入 JSONL；中断后用 `--resume` 跳过已成功项：
+
+```bash
+python3 -m literature_classification_agent.cli examples/batch_keyword_request.json \
+  --checkpoint runs/classification-checkpoint.jsonl \
+  --resume \
+  --pretty
 ```
 
 也可以从 stdin 读取：

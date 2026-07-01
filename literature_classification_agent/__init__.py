@@ -1,5 +1,6 @@
 from .agent import LiteratureClassificationAgent
 from .batch import BatchRunner
+from .checkpoint import CheckpointStore
 from .llm import LlmClassifier, OpenAICompatibleClient
 from .loader import PaperLoader
 from .prompt_builder import PromptBuilder
@@ -18,6 +19,7 @@ from .schema import (
 __all__ = [
     "BatchClassificationResult",
     "BatchRunner",
+    "CheckpointStore",
     "ClassificationInput",
     "ClassificationIntent",
     "ClassificationResult",

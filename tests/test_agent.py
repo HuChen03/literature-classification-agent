@@ -3,8 +3,9 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from literature_classification_agent import IntentRouter, LiteratureClassificationAgent, LlmClassifier, PaperLoader, PromptBuilder
+from literature_classification_agent import IntentRouter, LiteratureClassificationAgent, LlmClassifier, OpenAICompatibleClient, PaperLoader, PromptBuilder
 from literature_classification_agent.cli import _parse_input
+from literature_classification_agent.llm import parse_json_object
 from literature_classification_agent.schema import ClassificationInput, LiteraturePaper, Taxonomy, TaxonomyCategory
 
 
@@ -209,6 +210,67 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
         self.assertEqual(result.primary_category.id, "allowed")
         self.assertEqual(result.secondary_categories, [])
         self.assertIn("llm_secondary_category_outside_taxonomy", result.review_reasons)
+
+    def test_json_repair_accepts_fenced_json(self):
+        parsed = parse_json_object(
+            """
+```json
+{"mode":"general","confidence":0.8}
+```
+"""
+        )
+
+        self.assertEqual(parsed["mode"], "general")
+
+    def test_llm_client_retries_retryable_failures(self):
+        class RetryClient(OpenAICompatibleClient):
+            def __init__(self):
+                self.api_key = "test"
+                self.base_url = "https://example.test/v1"
+                self.model = "test"
+                self.timeout_s = 1
+                self.max_retries = 2
+                self.retry_backoff_s = 0
+                self.calls = 0
+
+            def _post_once(self, body):
+                self.calls += 1
+                if self.calls == 1:
+                    raise RuntimeError("llm_http_503: unavailable")
+                return {"choices": [{"message": {"content": '{"mode":"general","confidence":0.8}'}}]}
+
+        client = RetryClient()
+        parsed = client.complete_json("prompt")
+
+        self.assertEqual(parsed["mode"], "general")
+        self.assertEqual(client.calls, 2)
+
+    def test_checkpoint_resume_skips_successful_items(self):
+        with TemporaryDirectory() as tmpdir:
+            papers_path = Path(tmpdir) / "papers.jsonl"
+            checkpoint_path = Path(tmpdir) / "checkpoint.jsonl"
+            papers_path.write_text(
+                '{"paper_id":"a1","title":"Cosmological Simulation of Dark Matter Halos","abstract":"This simulation studies halo formation in cosmology."}',
+                encoding="utf8",
+            )
+            payload = {"source_path": str(papers_path), "keywords": ["cosmological simulation"]}
+
+            first = build_agent().run(payload, checkpoint_path=str(checkpoint_path)).to_dict()
+            self.assertEqual(first["summary"]["success_count"], 1)
+            self.assertTrue(checkpoint_path.exists())
+
+            class FailingClient:
+                def complete_json(self, prompt):
+                    raise RuntimeError("should_not_be_called")
+
+            resumed = LiteratureClassificationAgent(classifier=LlmClassifier(client=FailingClient())).run(
+                payload,
+                checkpoint_path=str(checkpoint_path),
+                resume=True,
+            ).to_dict()
+
+            self.assertEqual(resumed["summary"]["success_count"], 1)
+            self.assertEqual(resumed["items"][0]["result"]["primary_category"]["name"], "cosmological simulation")
 
 
 if __name__ == "__main__":

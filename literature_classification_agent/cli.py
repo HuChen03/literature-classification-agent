@@ -16,6 +16,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--single", action="store_true", help="Use legacy single-paper classify mode.")
     parser.add_argument("--pretty", action="store_true", help="Pretty-print JSON output.")
     parser.add_argument("--include-prompts", action="store_true", help="Include constructed prompts in output.")
+    parser.add_argument("--checkpoint", help="Append per-paper JSONL checkpoint records to this path.")
+    parser.add_argument("--resume", action="store_true", help="Skip successful papers already present in --checkpoint.")
     parser.add_argument("--output", help="Optional output file path. Defaults to stdout.")
     args = parser.parse_args(argv)
 
@@ -26,7 +28,12 @@ def main(argv: list[str] | None = None) -> int:
         output = agent.classify(payload).to_dict()
         text = json.dumps(output, ensure_ascii=False, indent=2 if args.pretty else None)
     else:
-        batch = agent.run(payload, include_prompts=args.include_prompts)
+        batch = agent.run(
+            payload,
+            include_prompts=args.include_prompts,
+            checkpoint_path=args.checkpoint,
+            resume=args.resume,
+        )
         output = batch.to_dict()
         output_format = output["intent"]["output_format"]
         if output_format == "jsonl":

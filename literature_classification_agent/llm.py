@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -15,6 +16,8 @@ class OpenAICompatibleClient:
         self.base_url = get_env("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
         self.model = get_env("OPENAI_MODEL", "gpt-4.1-mini")
         self.timeout_s = get_env_int("OPENAI_TIMEOUT_S", 60, 1, 600)
+        self.max_retries = get_env_int("OPENAI_MAX_RETRIES", 2, 0, 10)
+        self.retry_backoff_s = get_env_int("OPENAI_RETRY_BACKOFF_S", 2, 0, 60)
 
     def complete_json(self, prompt: str) -> dict[str, Any]:
         if not self.api_key:
@@ -34,6 +37,27 @@ class OpenAICompatibleClient:
                 {"role": "user", "content": prompt},
             ],
         }
+        payload = self._post_with_retries(body)
+        content = payload["choices"][0]["message"]["content"]
+        parsed = parse_json_object(content)
+        if not isinstance(parsed, dict):
+            raise RuntimeError("llm_returned_non_object_json")
+        return parsed
+
+    def _post_with_retries(self, body: dict[str, Any]) -> dict[str, Any]:
+        last_error: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                return self._post_once(body)
+            except RuntimeError as error:
+                last_error = error
+                if not _is_retryable_error(str(error)) or attempt >= self.max_retries:
+                    raise
+            if self.retry_backoff_s > 0:
+                time.sleep(self.retry_backoff_s * (2 ** attempt))
+        raise last_error or RuntimeError("llm_request_failed")
+
+    def _post_once(self, body: dict[str, Any]) -> dict[str, Any]:
         request = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=json.dumps(body).encode("utf8"),
@@ -45,17 +69,12 @@ class OpenAICompatibleClient:
         )
         try:
             with urllib.request.urlopen(request, timeout=self.timeout_s) as response:
-                payload = json.loads(response.read().decode("utf8"))
+                return json.loads(response.read().decode("utf8"))
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf8", errors="replace")[:500]
             raise RuntimeError(f"llm_http_{error.code}: {detail}") from error
         except urllib.error.URLError as error:
             raise RuntimeError(f"llm_request_failed: {error.reason}") from error
-        content = payload["choices"][0]["message"]["content"]
-        parsed = json.loads(content)
-        if not isinstance(parsed, dict):
-            raise RuntimeError("llm_returned_non_object_json")
-        return parsed
 
 
 class LlmClassifier:
@@ -130,3 +149,52 @@ def _dedupe(values: list[str]) -> list[str]:
             output.append(value)
             seen.add(value)
     return output
+
+
+def parse_json_object(raw: str) -> dict[str, Any]:
+    text = raw.strip()
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError:
+        parsed = json.loads(_extract_json_object_text(text))
+    if not isinstance(parsed, dict):
+        raise RuntimeError("json_repair_non_object")
+    return parsed
+
+
+def _extract_json_object_text(text: str) -> str:
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        text = "\n".join(lines).strip()
+        try:
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            pass
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        raise RuntimeError("json_repair_no_object_found")
+    return text[start : end + 1]
+
+
+def _is_retryable_error(message: str) -> bool:
+    retryable_markers = [
+        "llm_http_408",
+        "llm_http_409",
+        "llm_http_429",
+        "llm_http_500",
+        "llm_http_502",
+        "llm_http_503",
+        "llm_http_504",
+        "timed out",
+        "timeout",
+        "temporarily",
+        "connection reset",
+    ]
+    lowered = message.lower()
+    return any(marker in lowered for marker in retryable_markers)

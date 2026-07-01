@@ -29,7 +29,13 @@ class LiteratureClassificationAgent:
         )
         return self._classifier.classify(request, prompt=final_prompt)
 
-    def run(self, payload: ClassificationIntent | dict | str, include_prompts: bool = False) -> BatchClassificationResult:
+    def run(
+        self,
+        payload: ClassificationIntent | dict | str,
+        include_prompts: bool = False,
+        checkpoint_path: str | None = None,
+        resume: bool = False,
+    ) -> BatchClassificationResult:
         intent = payload if isinstance(payload, ClassificationIntent) else IntentRouter().route(payload)
         if intent.needs_clarification:
             return BatchClassificationResult(intent=intent, items=[], include_prompts=include_prompts)
@@ -38,4 +44,6 @@ class LiteratureClassificationAgent:
             intent,
             papers,
             include_prompts=include_prompts,
+            checkpoint_path=checkpoint_path,
+            resume=resume,
         )

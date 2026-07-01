@@ -2,9 +2,9 @@
 
 ## 1. LLM Robustness
 
-- Add retry with exponential backoff for transient HTTP failures.
-- Add per-paper timeout and cancellation at the batch runner level.
-- Add JSON repair for minor model formatting issues before failing a paper.
+- Implemented: retry with exponential backoff for transient HTTP failures.
+- Implemented: per-request HTTP timeout through `OPENAI_TIMEOUT_S`.
+- Implemented: JSON repair for fenced or prefixed/suffixed model output.
 - Record raw model output behind an opt-in debug flag for audit.
 
 ## 2. Input Coverage
@@ -12,7 +12,7 @@
 - Add PDF ingestion as a separate loader stage, not inside the classifier.
 - Add DOI/arXiv URL resolution into normalized paper objects.
 - Add recursive directory manifests so large batches can be resumed.
-- Add output checkpointing to avoid rerunning completed papers.
+- Implemented: output checkpointing to avoid rerunning completed papers.
 
 ## 3. Classification Quality
 
