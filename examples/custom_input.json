@@ -21,12 +21,6 @@
         "definition": "基于数据、实验、问卷、访谈或统计分析进行验证的文献",
         "keywords": ["empirical", "data", "experiment", "questionnaire", "regression", "问卷", "统计"]
       }
-    ],
-    "rules": {
-      "single_primary_category": true,
-      "allow_multiple_secondary_categories": false,
-      "allow_unknown": false,
-      "min_confidence_for_auto_accept": 0.7
-    }
+    ]
   }
 }

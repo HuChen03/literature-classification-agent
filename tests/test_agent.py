@@ -1,5 +1,4 @@
 import unittest
-import os
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -9,100 +8,96 @@ from literature_classification_agent.cli import _parse_input
 from literature_classification_agent.schema import ClassificationInput, LiteraturePaper, Taxonomy, TaxonomyCategory
 
 
-class LiteratureClassificationAgentTest(unittest.TestCase):
-    def setUp(self):
-        os.environ["CLASSIFIER_BACKEND"] = "rules"
-
-    def test_custom_mode_uses_only_user_taxonomy(self):
-        payload = {
-            "mode": "custom",
-            "paper": {
-                "paper_id": "p1",
-                "title": "Questionnaire-Based Study of Student Engagement",
-                "abstract": "This empirical study uses questionnaire data and regression analysis to evaluate engagement factors.",
-                "keywords": ["questionnaire", "regression"],
-            },
-            "taxonomy": {
-                "categories": [
-                    {
-                        "id": "theory",
-                        "name": "理论研究",
-                        "definition": "提出理论模型或概念框架",
-                        "keywords": ["theory", "framework", "理论"],
-                    },
-                    {
-                        "id": "empirical",
-                        "name": "实证研究",
-                        "definition": "基于数据、实验、问卷、访谈或统计分析进行验证",
-                        "keywords": ["empirical", "questionnaire", "regression", "data", "问卷"],
-                    },
-                ],
-                "rules": {
-                    "allow_unknown": False,
-                    "min_confidence_for_auto_accept": 0.6,
-                },
-            },
+class FakeClient:
+    def complete_json(self, prompt):
+        lower = prompt.lower()
+        if "taxonomy=" in lower and ("cosmological simulation" in lower or "halo" in lower):
+            return {
+                "mode": "custom",
+                "paper_id": "a1",
+                "primary_category": {"id": "cosmological-simulation", "name": "cosmological simulation"},
+                "secondary_categories": [],
+                "confidence": 0.91,
+                "evidence": [{"text": "Cosmological Simulation of Dark Matter Halos", "reason": "semantic match"}],
+                "needs_human_review": False,
+                "review_reasons": [],
+            }
+        if "taxonomy=" in lower and ("natural language processing" in lower or "nlp" in lower):
+            return {
+                "mode": "custom",
+                "paper_id": "n1",
+                "primary_category": {"id": "natural-language-processing", "name": "natural language processing"},
+                "secondary_categories": [],
+                "confidence": 0.9,
+                "evidence": [{"text": "Natural Language Processing", "reason": "semantic match"}],
+                "needs_human_review": False,
+                "review_reasons": [],
+            }
+        return {
+            "mode": "general",
+            "paper_type": "综述",
+            "research_methods": ["深度学习"],
+            "domains": ["计算机科学"],
+            "application_areas": ["自然语言处理"],
+            "data_types": ["文本"],
+            "generated_keywords": ["transformer", "survey"],
+            "confidence": 0.88,
+            "evidence": [{"text": "Transformer Survey", "reason": "general classification"}],
+            "needs_human_review": False,
+            "review_reasons": [],
         }
 
-        result = LiteratureClassificationAgent().classify(payload).to_dict()
+
+def build_agent() -> LiteratureClassificationAgent:
+    return LiteratureClassificationAgent(classifier=LlmClassifier(client=FakeClient()))
+
+
+class LiteratureClassificationAgentTest(unittest.TestCase):
+    def test_custom_mode_uses_llm_and_only_user_taxonomy(self):
+        result = build_agent().classify(
+            {
+                "mode": "custom",
+                "paper": {
+                    "paper_id": "a1",
+                    "title": "Cosmological Simulation of Dark Matter Halos",
+                    "abstract": "This simulation studies halo formation in cosmology.",
+                },
+                "taxonomy": {
+                    "categories": [
+                        {"id": "cosmological-simulation", "name": "cosmological simulation"},
+                        {"id": "natural-language-processing", "name": "natural language processing"},
+                    ]
+                },
+            }
+        ).to_dict()
 
         self.assertEqual(result["mode"], "custom")
-        self.assertEqual(result["primary_category"]["id"], "empirical")
-        self.assertEqual(result["secondary_categories"], [])
-        self.assertGreaterEqual(result["confidence"], 0.6)
+        self.assertEqual(result["primary_category"]["id"], "cosmological-simulation")
         self.assertTrue(result["evidence"])
 
-    def test_custom_mode_marks_review_when_no_allowed_category_matches(self):
-        payload = {
-            "mode": "custom",
-            "paper": {
-                "title": "A Clinical Imaging Dataset for Diagnosis",
-                "abstract": "The article describes X-ray images and clinical diagnosis labels.",
-            },
-            "taxonomy": {
-                "categories": [
-                    {
-                        "id": "theory",
-                        "name": "理论研究",
-                        "definition": "提出理论模型或概念框架",
-                        "keywords": ["theory", "framework", "理论"],
-                    }
-                ],
-                "rules": {"allow_unknown": False},
-            },
-        }
-
-        result = LiteratureClassificationAgent().classify(payload).to_dict()
-
-        self.assertIsNone(result["primary_category"])
-        self.assertTrue(result["needs_human_review"])
-        self.assertIn("no_allowed_category_matched", result["review_reasons"])
-
-    def test_general_mode_outputs_default_dimensions(self):
-        payload = {
-            "paper": {
-                "paper_id": "p2",
-                "title": "Transformer Models for Natural Language Processing: A Survey",
-                "abstract": "This survey reviews transformer architectures, language models, benchmarks, and applications in natural language processing.",
-                "keywords": ["transformer", "language model", "survey", "NLP"],
+    def test_general_mode_uses_llm_dimensions(self):
+        result = build_agent().classify(
+            {
+                "paper": {
+                    "paper_id": "p2",
+                    "title": "Transformer Models for Natural Language Processing: A Survey",
+                    "abstract": "This survey reviews transformer architectures and language models.",
+                    "keywords": ["transformer", "survey", "NLP"],
+                }
             }
-        }
-
-        result = LiteratureClassificationAgent().classify(payload).to_dict()
+        ).to_dict()
 
         self.assertEqual(result["mode"], "general")
         self.assertEqual(result["paper_type"], "综述")
-        self.assertIn("自然语言处理", result["application_areas"])
         self.assertIn("计算机科学", result["domains"])
-        self.assertTrue(result["generated_keywords"])
 
     def test_router_detects_keyword_custom_mode_and_path(self):
-        payload = {
-            "request": "请按给定关键词分类 ./papers.jsonl。关键词: 天文模拟, 自然语言处理",
-            "keywords": ["天文模拟", "自然语言处理"],
-        }
-
-        intent = IntentRouter().route(payload)
+        intent = IntentRouter().route(
+            {
+                "request": "请按给定关键词分类 ./papers.jsonl。关键词: 天文模拟, 自然语言处理",
+                "keywords": ["天文模拟", "自然语言处理"],
+            }
+        )
 
         self.assertEqual(intent.mode, "custom")
         self.assertEqual(intent.source_type, "file")
@@ -136,11 +131,10 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
                 "max_workers": 2,
             }
 
-            batch = LiteratureClassificationAgent().run(payload, include_prompts=True).to_dict()
+            batch = build_agent().run(payload, include_prompts=True).to_dict()
 
             self.assertEqual(batch["summary"]["total"], 2)
             self.assertEqual(batch["summary"]["success_count"], 2)
-            self.assertEqual(batch["items"][0]["result"]["mode"], "custom")
             self.assertIn("prompt", batch["items"][0])
             self.assertEqual(batch["items"][0]["result"]["primary_category"]["name"], "cosmological simulation")
 
@@ -152,7 +146,7 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
                 encoding="utf8",
             )
 
-            batch = LiteratureClassificationAgent().run(f"请按给定关键词分类 {path}。关键词: cosmological simulation").to_dict()
+            batch = build_agent().run(f"请按给定关键词分类 {path}。关键词: cosmological simulation").to_dict()
 
             self.assertEqual(batch["intent"]["mode"], "custom")
             self.assertEqual(batch["summary"]["success_count"], 1)
@@ -188,8 +182,8 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
         self.assertIsInstance(_parse_input('{"paper":{"title":"A","abstract":"B"}}'), dict)
         self.assertEqual(_parse_input("请分类 examples/papers.jsonl"), "请分类 examples/papers.jsonl")
 
-    def test_llm_classifier_parses_and_validates_result(self):
-        class FakeClient:
+    def test_llm_classifier_validates_out_of_taxonomy_categories(self):
+        class OutOfTaxonomyClient:
             def complete_json(self, prompt):
                 return {
                     "mode": "custom",
@@ -202,7 +196,7 @@ class LiteratureClassificationAgentTest(unittest.TestCase):
                     "review_reasons": [],
                 }
 
-        classifier = LlmClassifier(client=FakeClient())
+        classifier = LlmClassifier(client=OutOfTaxonomyClient())
         result = classifier.classify(
             ClassificationInput(
                 paper=LiteraturePaper(title="A", paper_id="p1", abstract="evidence sentence"),

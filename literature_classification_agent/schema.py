@@ -74,43 +74,8 @@ class TaxonomyCategory:
 
 
 @dataclass(frozen=True)
-class TaxonomyRules:
-    single_primary_category: bool = True
-    allow_multiple_secondary_categories: bool = False
-    allow_unknown: bool = False
-    min_confidence_for_auto_accept: float = 0.70
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, Any] | None) -> "TaxonomyRules":
-        if not payload:
-            return cls()
-        return cls(
-            single_primary_category=bool(payload.get("single_primary_category", payload.get("singlePrimaryCategory", True))),
-            allow_multiple_secondary_categories=bool(
-                payload.get("allow_multiple_secondary_categories", payload.get("allowMultipleSecondaryCategories", False))
-            ),
-            allow_unknown=bool(payload.get("allow_unknown", payload.get("allowUnknown", False))),
-            min_confidence_for_auto_accept=_bounded_float(
-                payload.get("min_confidence_for_auto_accept", payload.get("minConfidenceForAutoAccept", 0.70)),
-                0.0,
-                1.0,
-                0.70,
-            ),
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "single_primary_category": self.single_primary_category,
-            "allow_multiple_secondary_categories": self.allow_multiple_secondary_categories,
-            "allow_unknown": self.allow_unknown,
-            "min_confidence_for_auto_accept": self.min_confidence_for_auto_accept,
-        }
-
-
-@dataclass(frozen=True)
 class Taxonomy:
     categories: list[TaxonomyCategory]
-    rules: TaxonomyRules = field(default_factory=TaxonomyRules)
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "Taxonomy":
@@ -120,12 +85,11 @@ class Taxonomy:
         categories = [TaxonomyCategory.from_dict(item) for item in categories_raw if isinstance(item, dict)]
         if not categories:
             raise ValueError("taxonomy.categories must contain valid categories")
-        return cls(categories=categories, rules=TaxonomyRules.from_dict(payload.get("rules") if isinstance(payload.get("rules"), dict) else None))
+        return cls(categories=categories)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "categories": [item.to_dict() for item in self.categories],
-            "rules": self.rules.to_dict(),
         }
 
 

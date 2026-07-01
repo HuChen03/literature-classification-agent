@@ -18,7 +18,7 @@ class OpenAICompatibleClient:
 
     def complete_json(self, prompt: str) -> dict[str, Any]:
         if not self.api_key:
-            raise RuntimeError("OPENAI_API_KEY is required when CLASSIFIER_BACKEND=llm")
+            raise RuntimeError("OPENAI_API_KEY is required")
         body = {
             "model": self.model,
             "temperature": 0,

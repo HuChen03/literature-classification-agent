@@ -13,7 +13,6 @@ from .schema import (
     PaperClassificationJobResult,
     Taxonomy,
     TaxonomyCategory,
-    TaxonomyRules,
 )
 
 __all__ = [
@@ -32,5 +31,4 @@ __all__ = [
     "PromptBuilder",
     "Taxonomy",
     "TaxonomyCategory",
-    "TaxonomyRules",
 ]

@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .schema import ClassificationIntent, LiteraturePaper, OutputFormat, SourceType, Taxonomy, TaxonomyCategory, TaxonomyRules
+from .schema import ClassificationIntent, LiteraturePaper, OutputFormat, SourceType, Taxonomy, TaxonomyCategory
 
 
 _PATH_RE = re.compile(r"(?P<path>(?:\.{1,2}|/|~)[^\s，。；;]+|[A-Za-z0-9_.\-/]+?\.(?:jsonl?|csv|txt|md))")
@@ -57,7 +57,7 @@ class IntentRouter:
 
         categories_raw = payload.get("categories")
         if isinstance(categories_raw, list) and categories_raw:
-            return Taxonomy.from_dict({"categories": categories_raw, "rules": payload.get("rules") or {}})
+            return Taxonomy.from_dict({"categories": categories_raw})
 
         keywords = self._extract_keywords(payload, user_text)
         if keywords:
@@ -70,7 +70,7 @@ class IntentRouter:
                 )
                 for keyword in keywords
             ]
-            return Taxonomy(categories=categories, rules=TaxonomyRules(allow_multiple_secondary_categories=True))
+            return Taxonomy(categories=categories)
         return None
 
     def _extract_keywords(self, payload: dict[str, Any], user_text: str) -> list[str]:

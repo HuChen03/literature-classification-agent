@@ -32,6 +32,7 @@ class PromptBuilder:
                 "你是严格文献分类器。",
                 "只能使用用户给定的分类标准或关键词集合。",
                 "不得新增类别；如果没有类别匹配，primary_category=null，并设置 needs_human_review=true。",
+                "primary_category 最多一个；secondary_categories 可包含其他明确相关的给定类别。",
                 "每个分类必须给出 evidence，包括命中关键词或语义依据。",
                 "输出严格 JSON，不要 Markdown。",
                 self._schema_block(),
